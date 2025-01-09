@@ -20,20 +20,93 @@ def bruteLog(g, c, p):
             return i + 1
     return -1
 
-def EG_generate_keys("""TBC"""):
+def EG_generate_keys(p:hex = PARAM_P, g: hex =PARAM_G) -> tuple[int,int]:
+    """
+    ElGamal Key Generation (Multiplicative version)
+    
+    Returns:
+        x (int): secret key (1 <= x <= p-2)
+        y (int): public key = g^x mod p
+    """
+    # Private key
+    x = randint(1, p-2)
+    # Public key
+    y = pow(g, x, p)
+    return x, y
 
-    return """TBC"""
+
 
 ## multiplicative version
-def EGM_encrypt("""TBC"""):
+def EGM_encrypt(M: int, y: int, p=PARAM_P, g=PARAM_G)->tuple[int,int]: 
+    """
+    Multiplicative ElGamal Encryption
+    Inputs:
+        M (int): message, in [1, p-1]
+        y (int): the recipient's public key
+    Returns:
+        (c1, c2): the ciphertext (each in [1, p-1])
+    """
+    # Generate an ephemeral key k
+    k = randint(1, p-2)
+    
+    # c1 = g^k mod p
+    c1 = pow(g, k, p)
+    
+    # c2 = M * (y^k mod p) mod p
+    s = pow(y, k, p)  # shared secret
+    c2 = (M * s) % p
+    
+    return c1, c2
 
-    return """TBC"""
 
 ## additive version
-def EGA_encrypt("""TBC"""):
-    return """TBC"""
+def EGA_encrypt(M: int, y: int, p=PARAM_P, g=PARAM_G) -> tuple[int,int]:
+    """
+    (Optional) Additive version of ElGamal Encryption
+    If you want an additive homomorphic scheme, you'd define a different group operation.
+    We'll just put a placeholder to illustrate.
+    """
+    # For an additive version, you'd have a different group law, but let's keep
+    # the same pattern. This is just a placeholder.
+    
+    k = randint(1, p-2)
+    c1 = pow(g, k, p)  # or "g*k mod p" for an additive group
+    s = pow(y, k, p)
+    # c2 = (M + s) mod p for an additive scheme, for instance
+    c2 = (g^M+ s) % p
+    return c1, c2
 
 
-def EG_decrypt("""TBC"""):
-    return """TBC"""
+def EG_decrypt(c1: int, c2: int, x: int, p=PARAM_P) -> int:
+    """
+    ElGamal Decryption (Multiplicative version)
+    Inputs:
+        c1, c2: ciphertext
+        x (int): private key
+    Returns:
+        M (int): plaintext in [1, p-1]
+    """
+    # s = c1^x mod p
+    s = pow(c1, x, p)
+    
+    # M = c2 * s^-1 mod p
+    s_inv = mod_inv(s, p)
+    M = (c2 * s_inv) % p
+    return M
 
+
+
+if __name__ == "__main__":
+    m1 = 0x2661b673f687c5c3142f806d500d2ce57b1182c9b25bfe4fa09529424b
+    m2 = 0x1c1c871caabca15828cf08ee3aa3199000b94ed15e743c3
+
+    x,y = EG_generate_keys()
+
+    r1,c1 = EGM_encrypt(m1,y)
+    r2,c2 = EGM_encrypt(m2,y)
+
+    r3,c3 = r1*r2, c1*c2
+    
+    m3 = EG_decrypt(r3,c3,x)
+    print(m3)
+    print(m1*m2)
