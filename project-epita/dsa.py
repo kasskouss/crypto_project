@@ -14,20 +14,66 @@ def H(message):
     h = SHA256.new(message)
     return (int(h.hexdigest(), 16))
 
-def DSA_generate_nonce(("""TBC""")):
-
-    return ("""TBC""")
-
-
-def DSA_generate_keys("""TBC"""):
-
-    return """TBC"""
+def DSA_generate_nonce(q: int = PARAM_Q) -> int:
+    return randint(1,q-1)
 
 
-def DSA_sign("""TBC"""):
+def DSA_generate_keys(p: int = PARAM_P,
+                      q: int = PARAM_Q,
+                      g: int = PARAM_G) -> tuple[int,int]:
 
-    return """TBC"""    
+    x = randint(1,q-1)
+    y = pow(g,x,p)
+    return x,y
 
-def DSA_verify("""TBC"""):
 
-    return """TBC"""
+def DSA_sign(message: bytes,
+             x: int,
+             p: int = PARAM_P,
+             q: int = PARAM_Q,
+             g: int = PARAM_G) -> tuple[hex,hex]:
+
+    k = DSA_generate_nonce(q)
+    r = pow(g,k,p) % q
+
+    hm = H(message)
+    k_inv = mod_inv(k,q)
+    s = (k_inv * (hm + x *r)) % q
+    return hex(r), hex(s)
+
+def DSA_verify(message: bytes,
+               r: int,
+               s: int,
+               y: int,
+               p: int = PARAM_P,
+               q: int = PARAM_Q,
+               g: int = PARAM_G) -> bool:
+
+    if not (0 < r < q and 0 < s < q):
+        return False
+    
+    hm = H(message)
+
+    w = mod_inv(s,q)
+
+    u1 = (hm * w) % q
+    u2 = (r * w) % q
+
+
+    gu1 = pow(g,u1,p)
+    yu2 = pow(y,u2,p)
+    v = (gu1 * yu2) % p
+    v = v %q
+
+    return (v == r)
+
+
+if __name__ == "__main__":
+    msg = b"An important message !"
+    x = 0x49582493d17932dabd014bb712fc55af453ebfb2767537007b0ccff6e857e6a3
+    signed = DSA_sign(msg,x)
+
+    r = 0x5ddf26ae653f5583e44259985262c84b483b74be46dec74b07906c5896e26e5a
+    s = 0x194101d2c55ac599e4a61603bc6667dcc23bd2e9bdbef353ec3cb839dcce6ec1
+    print(signed)
+
