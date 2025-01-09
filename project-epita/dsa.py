@@ -14,33 +14,43 @@ def H(message):
     h = SHA256.new(message)
     return (int(h.hexdigest(), 16))
 
+# Generate a random nonce for the signature
 def DSA_generate_nonce(q: int = PARAM_Q) -> int:
+    # Nonce must be a random integer between 1 and PARAM_Q - 1
     return randint(1,q-1)
 
 
+# Generate DSA keys (private and public)
 def DSA_generate_keys(p: int = PARAM_P,
                       q: int = PARAM_Q,
                       g: int = PARAM_G) -> tuple[int,int]:
-
+    # Private key (x): random integer between 1 and q-1
     x = randint(1,q-1)
+    # Public key (y): PARAM_G^x mod PARAM_P
     y = pow(g,x,p)
     return x,y
 
 
+# Sign a message using the DSA private key
 def DSA_sign(message: bytes,
              x: int,
              p: int = PARAM_P,
              q: int = PARAM_Q,
              g: int = PARAM_G) -> tuple[hex,hex]:
 
+    # Generate a random nonce (k)
     k = DSA_generate_nonce(q)
+    # Compute r = (PARAM_G^k mod PARAM_P) mod PARAM_Q
     r = pow(g,k,p) % q
-
+    # Compute s = (H(message) + x * r) * mod_inv(k, PARAM_Q) mod PARAM_Q
     hm = H(message)
     k_inv = mod_inv(k,q)
     s = (k_inv * (hm + x *r)) % q
     return hex(r), hex(s)
 
+
+
+# Verify a DSA signature
 def DSA_verify(message: bytes,
                r: int,
                s: int,
@@ -49,6 +59,7 @@ def DSA_verify(message: bytes,
                q: int = PARAM_Q,
                g: int = PARAM_G) -> bool:
 
+    # Verify r and s are in valid range
     if not (0 < r < q and 0 < s < q):
         return False
     
@@ -59,21 +70,34 @@ def DSA_verify(message: bytes,
     u1 = (hm * w) % q
     u2 = (r * w) % q
 
-
     gu1 = pow(g,u1,p)
     yu2 = pow(y,u2,p)
     v = (gu1 * yu2) % p
     v = v %q
-
+    # Signature is valid if v == r
     return (v == r)
 
 
 if __name__ == "__main__":
     msg = b"An important message !"
     x = 0x49582493d17932dabd014bb712fc55af453ebfb2767537007b0ccff6e857e6a3
-    signed = DSA_sign(msg,x)
+
+    def DSA_sign_test(message: bytes,
+             x: int,
+             p: int = PARAM_P,
+             q: int = PARAM_Q,
+             g: int = PARAM_G) -> tuple[hex,hex]:
+
+        k = 0x7e7f77278fe5232f30056200582ab6e7cae23992bca75929573b779c62ef4759 # k constant for testing
+        r = pow(g,k,p) % q
+        hm = H(message)
+        k_inv = mod_inv(k,q)
+        s = (k_inv * (hm + x *r)) % q
+        return hex(r), hex(s)
+
+    r, s = DSA_sign_test(msg, x)
+    print(f"My Signature:\n r = {r},\n s = {s}")
 
     r = 0x5ddf26ae653f5583e44259985262c84b483b74be46dec74b07906c5896e26e5a
     s = 0x194101d2c55ac599e4a61603bc6667dcc23bd2e9bdbef353ec3cb839dcce6ec1
-    print(signed)
-
+    print(f"Expected Signature:\n r = {hex(r)},\nls s = {hex(s)}")
