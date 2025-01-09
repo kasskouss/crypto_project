@@ -14,20 +14,46 @@ def H(message):
     h = SHA256.new(message)
     return (int(h.hexdigest(), 16))
 
-def DSA_generate_nonce(("""TBC""")):
+# Generate a random nonce for the signature
+def DSA_generate_nonce():
+    # Nonce must be a random integer between 1 and PARAM_Q - 1
+    return randint(1, PARAM_Q - 1)
 
-    return ("""TBC""")
+# Generate DSA keys (private and public)
+def DSA_generate_keys():
+    # Private key (x): Random integer between 1 and PARAM_Q - 1
+    x = randint(1, PARAM_Q - 1)  # Private key
+    # Public key (y): PARAM_G^x mod PARAM_P
+    y = pow(PARAM_G, x, PARAM_P)  # Public key
+    return x, y
 
+# Sign a message using the DSA private key
+def DSA_sign(message, x):
+    # Generate a random nonce (k)
+    k = DSA_generate_nonce()
+    # Compute r = (PARAM_G^k mod PARAM_P) mod PARAM_Q
+    r = pow(PARAM_G, k, PARAM_P) % PARAM_Q
+    if r == 0:
+        return DSA_sign(message, x)  # Retry if r is 0
+    # Compute s = (H(message) + x * r) * mod_inv(k, PARAM_Q) mod PARAM_Q
+    s = (H(message) + x * r) * mod_inv(k, PARAM_Q) % PARAM_Q
+    if s == 0:
+        return DSA_sign(message, x)  # Retry if s is 0
+    # Return the signature (r, s)
+    return r, s  
 
-def DSA_generate_keys("""TBC"""):
-
-    return """TBC"""
-
-
-def DSA_sign("""TBC"""):
-
-    return """TBC"""    
-
-def DSA_verify("""TBC"""):
-
-    return """TBC"""
+# Verify a DSA signature
+def DSA_verify(message, r, s, y):
+    # Verify r and s are in valid range
+    if not (0 < r < PARAM_Q and 0 < s < PARAM_Q):
+        return False
+    # Compute w = mod_inv(s, PARAM_Q)
+    w = mod_inv(s, PARAM_Q)
+    # Compute u1 = (H(message) * w) mod PARAM_Q
+    u1 = (H(message) * w) % PARAM_Q
+    # Compute u2 = (r * w) mod PARAM_Q
+    u2 = (r * w) % PARAM_Q
+    # Compute v = ((PARAM_G^u1 * y^u2) mod PARAM_P) mod PARAM_Q
+    v = (pow(PARAM_G, u1, PARAM_P) * pow(y, u2, PARAM_P) % PARAM_P) % PARAM_Q
+    # Signature is valid if v == r
+    return v == r
