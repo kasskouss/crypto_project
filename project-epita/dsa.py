@@ -57,3 +57,31 @@ def DSA_verify(message, r, s, y):
     v = (pow(PARAM_G, u1, PARAM_P) * pow(y, u2, PARAM_P) % PARAM_P) % PARAM_Q
     # Signature is valid if v == r
     return v == r
+
+
+#### TEST ####
+if __name__ == "main":
+    
+
+m = b"An important message !"
+x = 0x49582493d17932dabd014bb712fc55af453ebfb2767537007b0ccff6e857e6a3
+
+def DSA_sign_test(message, x):
+    # Generate a random nonce (k)
+    k = 0x7e7f77278fe5232f30056200582ab6e7cae23992bca75929573b779c62ef4759
+    # Compute r = (PARAM_G^k mod PARAM_P) mod PARAM_Q
+    r = pow(PARAM_G, k, PARAM_P) % PARAM_Q
+    if r == 0:
+        return DSA_sign_test(message, x)  # Retry if r is 0
+    # Compute s = (H(message) + x * r) * mod_inv(k, PARAM_Q) mod PARAM_Q
+    s = (H(message) + x * r) * mod_inv(k, PARAM_Q) % PARAM_Q
+    if s == 0:
+        return DSA_sign_test(message, x)  # Retry if s is 0
+    # Return the signature (r, s)
+    return r, s  
+
+r, s = DSA_sign_test(m, x)
+print(f"Signature: r = {hex(r)}, s = {hex(s)}")
+
+
+
