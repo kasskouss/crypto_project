@@ -38,6 +38,13 @@
 #         ###
 #         return msg
 
+    # def encrypt_votes(self, vote_list: list[int]) -> str:
+    #     encrypted_votes = []
+    #     for vote in vote_list:
+    #         c1, c2 = elgamal.EGA_encrypt(vote, self.eg_pu_key)
+    #         encrypted_votes.append(f"{c1}_{c2}")
+    #     # Join all encrypted votes with a delimiter (e.g., '|')
+    #     return "|".join(encrypted_votes)
 
 #     def sign_message(self,msg:str,sign_key_x:int):
 #         r,s = dsa.DSA_sign(msg,sign_key_x)
