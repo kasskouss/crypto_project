@@ -73,7 +73,7 @@ def EGA_encrypt(M: int, y: int, p=PARAM_P, g=PARAM_G) -> tuple[int,int]:
     c1 = pow(g, k, p)  # or "g*k mod p" for an additive group
     s = pow(y, k, p)
     # c2 = (M + s) mod p for an additive scheme, for instance
-    c2 = (g^M+ s) % p
+    c2 = (pow(g,M,p)*s) % p
     return c1, c2
 
 
@@ -97,16 +97,33 @@ def EG_decrypt(c1: int, c2: int, x: int, p=PARAM_P) -> int:
 
 
 if __name__ == "__main__":
-    m1 = 0x2661b673f687c5c3142f806d500d2ce57b1182c9b25bfe4fa09529424b
-    m2 = 0x1c1c871caabca15828cf08ee3aa3199000b94ed15e743c3
+    # m1 = 0x2661b673f687c5c3142f806d500d2ce57b1182c9b25bfe4fa09529424b
+    # m2 = 0x1c1c871caabca15828cf08ee3aa3199000b94ed15e743c3
 
     x,y = EG_generate_keys()
 
-    r1,c1 = EGM_encrypt(m1,y)
-    r2,c2 = EGM_encrypt(m2,y)
-
-    r3,c3 = r1*r2, c1*c2
+    # r1,c1 = EGM_encrypt(m1,y)
+    # r2,c2 = EGM_encrypt(m2,y)
     
-    m3 = EG_decrypt(r3,c3,x)
-    print(m3)
-    print(m1*m2)
+
+    # r3,c3 = r1*r2, c1*c2
+    
+    # m3 = EG_decrypt(r3,c3,x)
+    # # print(f"m3:\n{m3}")
+    # # print(f"m1*m2:\n{m1*m2}")
+
+
+    m_1 = 1
+    m_2 = 0
+    m_3 = 1
+    m_4 = 1
+    m_5 = 0
+    ra1, ca1 = EGA_encrypt(m_1,y)
+    ra2, ca2 = EGA_encrypt(m_2,y)
+    ra3, ca3 = EGA_encrypt(m_3,y)
+    ra4, ca4 = EGA_encrypt(m_4,y)
+    ra5, ca5 = EGA_encrypt(m_5,y)
+    m =EG_decrypt(ra1*ra2*ra3*ra4*ra5,ca1*ca2*ca3*ca4*ca5,x)
+    print(m)
+    print(bruteLog(PARAM_G,m,PARAM_P))
+
