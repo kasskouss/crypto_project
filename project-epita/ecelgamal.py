@@ -10,19 +10,36 @@ ORDER = (2**252 + 27742317777372353535851937790883648493)
 BaseU = 9
 BaseV = computeVcoordinate(BaseU)
 
-def bruteECLog(C1, C2, p):
-    s1, s2 = 1, 0
-    for i in range(p):
-        if s1 == C1 and s2 == C2:
-            return i
-        s1, s2 = add(s1, s2, BaseU, BaseV, p)
-    return -1
+def bruteECLog(C1, C2, max_attempts):
+    """Find k such that k * BasePoint = (C1, C2) by brute-forcing up to max_attempts."""
+    current = (1, 0)  # Start with 0 votes (point at infinity)
+    for k in range(0, max_attempts + 1):
+        if current[0] == C1 and current[1] == C2:
+            return k
+        current = add(current[0], current[1], BaseU, BaseV, p)
+    raise ValueError(f"Total votes exceed {max_attempts}")
 
-def EGencode(message):
+def ECEG_decrypt_tally(R: Tuple[int, int], C: Tuple[int, int], x: int, max_voters: int) -> int:
+    """Decrypt for tallying by brute-forcing up to max_voters."""
+    S = mult(x, R[0], R[1], p)
+    M = sub(C[0], C[1], S[0], S[1], p)
+    return bruteECLog(M[0], M[1], max_voters)
+
+def EGencode(message: int) -> Tuple[int, int]:
     if message == 0:
-        return (1,0)
-    if message == 1:
-        return (BaseU, BaseV)
+        return (1, 0)  # Point at infinity for 0
+    elif message == 1:
+        return (BaseU, BaseV)  # Base point for 1
+    else:
+        raise ValueError("Invalid message (must be 0 or 1)")
+
+def EGdecode(M: Tuple[int, int]) -> int:
+    if M == (1, 0):
+        return 0
+    elif M == (BaseU, BaseV):
+        return 1
+    else:
+        raise ValueError("Decrypted point does not represent 0 or 1")
 
 
 # Generate EC ElGamal key pair.
@@ -39,13 +56,11 @@ def ECEG_generate_keys() -> Tuple[int, Tuple[int, int]]:
 #     - Returns: (R, C), where:
 #         - R = k * BasePoint
 #         - C = M + k * P
+
 def ECEG_encrypt(message: int, P: Tuple[int, int]) -> Tuple[Tuple[int, int], Tuple[int, int]]:
     M = EGencode(message)
-    # Step 2: Generate a random ephemeral key k
     k = randint(1, ORDER - 1)
-    # Step 3: Compute R = k * BasePoint
     R = mult(k, BaseU, BaseV, p)
-    # Step 4: Compute C = M + k * P
     kP = mult(k, P[0], P[1], p)
     C = add(M[0], M[1], kP[0], kP[1], p)
     return R, C
@@ -57,16 +72,16 @@ def ECEG_encrypt(message: int, P: Tuple[int, int]) -> Tuple[Tuple[int, int], Tup
 #    - x: The private key of the recipient.
 #    - Returns: The decoded message (0 or 1).
 def ECEG_decrypt(R: Tuple[int, int], C: Tuple[int, int], x: int) -> int:
-    # Step 1: Compute S = x * R
+    # Compute S = x * R
     S = mult(x, R[0], R[1], p)
-    # Step 2: Compute M = C - S
+    # Compute M = C - S
     M = sub(C[0], C[1], S[0], S[1], p)
-    # Step 3: Use brute force to find the original message
-    message = bruteECLog(M[0], M[1], ORDER)
-    return message
+    # Directly decode M to 0 or 1
+    return EGdecode(M)
 
 # Test Case
-def test_ecelgamal():
+if __name__ == "__main__":
+# def test():
     # Step 1: Generate key pair
     private_key, public_key = ECEG_generate_keys()
     print(f"Private key: {private_key}")
@@ -96,5 +111,4 @@ def test_ecelgamal():
     decrypted_sum = ECEG_decrypt(r_sum, c_sum, private_key)
     print(f"Homomorphic decryption result: {decrypted_sum} (Expected: 3)")
 
-# Run test
-test_ecelgamal()
+# test()

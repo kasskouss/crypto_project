@@ -1,26 +1,60 @@
-# test_vote_system.py
-from vote_system import VoteSystem
+# test_main.py
+import pytest
+from unittest.mock import patch
+from main import main
 
-# Initialize the voting system
-vote_system = VoteSystem(sign_method="dsa", elgammal_method="elgamal")
+def simulate_inputs(inputs):
+    """Helper to simulate sequential user inputs."""
+    input_generator = (i for i in inputs)
+    return lambda *args, **kwargs: next(input_generator)
 
-# Set candidates
-candidates = ["Candidate A", "Candidate B", "Candidate C", "Candidate D", "Candidate E"]
-vote_system.set_candidates(candidates)
+@patch('builtins.input', simulate_inputs([
+    '1',  # Signature method: DSA
+    '1',  # Encryption method: ElGamal
+    'voter1', 'voter2', 'voter3', 'voter4', 'voter5',  # Voter names
+    'voter6', 'voter7', 'voter8', 'voter9', 'voter10',
+    '1', '2', '1', '3', '4',  # Votes for C1, C2, C1, C3, C4
+    '5', '1', '2', '3', '4'   # Votes for C5, C1, C2, C3, C4
+]))
+def test_main_classic_elgamal_dsa(capsys):
+    main()
+    captured = capsys.readouterr()
+    assert "C1: 3 vote(s)" in captured.out
+    assert "C2: 2 vote(s)" in captured.out
+    assert "C3: 2 vote(s)" in captured.out
+    assert "C4: 2 vote(s)" in captured.out
+    assert "C5: 1 vote(s)" in captured.out
 
-# Add voters
-vote_system.add_voter("Voter 1", sign_key_x=12345)
-vote_system.add_voter("Voter 2", sign_key_x=67890)
+@patch('builtins.input', simulate_inputs([
+    '2',  # Signature method: ECDSA
+    '2',  # Encryption method: EC ElGamal
+    'voter1', 'voter2', 'voter3', 'voter4', 'voter5',  # Voter names
+    'voter6', 'voter7', 'voter8', 'voter9', 'voter10',
+    '1', 'invalid', '2', '3', '4',  # Votes: 1, invalid→1, 2, 3, 4
+    '5', '1', '2', '3', '4'         # Votes: 5, 1, 2, 3, 4
+]))
+def test_main_ecelgamal_ecdsa(capsys):
+    main()
+    captured = capsys.readouterr()
+    assert "C1: 3 vote(s)" in captured.out  # 2 valid + 1 invalid→1
+    assert "C2: 2 vote(s)" in captured.out
+    assert "C3: 2 vote(s)" in captured.out
+    assert "C4: 2 vote(s)" in captured.out
+    assert "C5: 1 vote(s)" in captured.out
 
-# Simulate voting
-voter1 = list(vote_system.voters_map.keys())[0]
-voter1.create_vote([1, 0, 0, 0, 0])  # Vote for Candidate A
-
-voter2 = list(vote_system.voters_map.keys())[1]
-voter2.create_vote([0, 1, 0, 0, 0])  # Vote for Candidate B
-
-# Collect and tally votes
-encrypted_votes = vote_system.collect_votes()
-result = vote_system.tally_votes(encrypted_votes)
-
-print("Tally Result:", result)
+@patch('builtins.input', simulate_inputs([
+    '',  # Default to DSA
+    '',  # Default to ElGamal
+    'v1', 'v2', 'v3', 'v4', 'v5',  # Voter names
+    'v6', 'v7', 'v8', 'v9', 'v10',
+    '5', 'invalid', '2', '3', '4',  # Votes: 5→1, invalid→1, 2, 3, 4
+    '1', '2', '3', '4', '5'         # Votes: 1, 2, 3, 4, 5
+]))
+def test_main_defaults(capsys):
+    main()
+    captured = capsys.readouterr()
+    assert "C1: 2 vote(s)" in captured.out  # 1 valid + 1 invalid→1
+    assert "C2: 2 vote(s)" in captured.out
+    assert "C3: 2 vote(s)" in captured.out
+    assert "C4: 2 vote(s)" in captured.out
+    assert "C5: 2 vote(s)" in captured.out

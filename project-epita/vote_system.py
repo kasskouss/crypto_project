@@ -1,16 +1,36 @@
-import dsa
-import elgamal
+# vote_system.py
+from candidate import Candidates
 from voters import Voter
 from vote_encryption import VoteEncryption
-from candidate import Candidates
+import dsa
+import elgamal
+import ecdsa
+import ecelgamal
+from rfc7748 import add as ec_add  # Import ec_add for elliptic curve addition
+from ecelgamal import p as ec_p, ECEG_decrypt  # Import EC ElGamal parameters
+from ecelgamal import ECEG_decrypt_tally
+
 
 class VoteSystem:
-    def __init__(self, candidates: Candidates, sign_method: str, elgammal_method: str):
-        self.eg_x, self.eg_y = elgamal.EG_generate_keys()
-        self.vote_encryption = VoteEncryption(sign_method, elgammal_method, self.eg_y)
+    def __init__(self, candidates: Candidates, sign_method: str, elgamal_method: str):
         self.candidates = candidates
-        self.voters_map = {}    # maps voter names to Voter objects
-        self.ballots = []       # list of ballots (each is a dict)
+        self.sign_method = sign_method
+        self.elgamal_method = elgamal_method
+        self.voters_map = {}
+        self.ballots = []
+
+        # Generate keys based on the selected encryption method
+        if elgamal_method == "el":
+            from ecelgamal import ECEG_generate_keys
+            self.eg_x, self.eg_pu = ECEG_generate_keys()
+            self.eg_pu_key = self.eg_pu
+        else:
+            from elgamal import EG_generate_keys
+            self.eg_x, self.eg_y = EG_generate_keys()
+            self.eg_pu_key = self.eg_y
+
+        # Initialize VoteEncryption
+        self.vote_encryption = VoteEncryption(sign_method, elgamal_method, self.eg_pu_key)
 
     def add_voter(self, voter: Voter):
         if voter.name in self.voters_map:
@@ -27,28 +47,44 @@ class VoteSystem:
         print(f"Ballot from {voter_name} recorded.")
 
     def tally_votes(self) -> dict:
-        # For each candidate, aggregate the ciphertexts from all ballots.
         num_candidates = self.candidates.candidate_number
-        aggregated_ciphertexts = [(1, 1) for _ in range(num_candidates)]
-        for ballot_entry in self.ballots:
-            ballot = ballot_entry["ballot"]
-            # Each ballot's "msg" contains 5 lines, one per candidate.
-            encrypted_lines = ballot["msg"].strip().split("\n")
-            if len(encrypted_lines) != num_candidates:
-                raise Exception("Ballot has an incorrect number of encrypted votes.")
-            for i in range(num_candidates):
-                c1_str, c2_str = encrypted_lines[i].split("_")
-                r_i = int(c1_str)
-                c_i = int(c2_str)
-                agg_r, agg_c = aggregated_ciphertexts[i]
-                agg_r = (agg_r * r_i) % elgamal.PARAM_P
-                agg_c = (agg_c * c_i) % elgamal.PARAM_P
-                aggregated_ciphertexts[i] = (agg_r, agg_c)
+        # Initialize aggregated ciphertexts based on encryption method
+        if self.elgamal_method == "el":
+            aggregated = [((1, 0), (1, 0)) for _ in range(num_candidates)]
+        else:
+            aggregated = [(1, 1) for _ in range(num_candidates)]
+        
+
+        # Aggregate votes
+        for ballot in self.ballots:
+            encrypted_lines = ballot["ballot"]["msg"].strip().split("\n")
+            for i, line in enumerate(encrypted_lines):
+                if self.elgamal_method == "el":
+                    parts = list(map(int, line.split("_")))
+                    R, C = ((parts[0], parts[1]), (parts[2], parts[3]))
+                    agg_R, agg_C = aggregated[i]
+                    aggregated[i] = (
+                        ec_add(agg_R[0], agg_R[1], R[0], R[1], ec_p),
+                        ec_add(agg_C[0], agg_C[1], C[0], C[1], ec_p)
+                    )
+                else:
+                    # Classic ElGamal: split into c1 and c2
+                    c1, c2 = map(int, line.split("_"))
+                    aggregated[i] = (
+                        (aggregated[i][0] * c1) % elgamal.PARAM_P,
+                        (aggregated[i][1] * c2) % elgamal.PARAM_P
+                    )
+
+        # Decrypt totals
         results = {}
         for i in range(num_candidates):
-            agg_r, agg_c = aggregated_ciphertexts[i]
-            decrypted = elgamal.EG_decrypt(agg_r, agg_c, self.eg_x)
-            total_votes = elgamal.bruteLog(elgamal.PARAM_G, decrypted, elgamal.PARAM_P)
-            candidate_name = self.candidates.candidate_list[i]
-            results[candidate_name] = total_votes
+            if self.elgamal_method == "el":
+                R_total, C_total = aggregated[i]
+                total = ECEG_decrypt_tally(R_total, C_total, self.eg_x, 10)  # 10 voters max
+            else:
+                c1_total, c2_total = aggregated[i]
+                decrypted = elgamal.EG_decrypt(c1_total, c2_total, self.eg_x)
+                total = elgamal.bruteLog(elgamal.PARAM_G, decrypted, elgamal.PARAM_P)
+            results[self.candidates.candidate_list[i]] = total
+
         return results

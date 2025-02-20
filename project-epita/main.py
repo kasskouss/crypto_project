@@ -1,12 +1,3 @@
-import random
-from candidate import Candidates
-from voters import Voter
-from vote_system import VoteSystem
-import dsa
-
-
-
-# main.py
 from candidate import Candidates
 from voters import Voter
 from vote_system import VoteSystem
@@ -20,33 +11,34 @@ def main():
     candidates = Candidates(candidate_names)
     
     # Choose signature and encryption methods.
-    # (For this project we only use DSA and additive ElGamal.)
     print("Select Signature method:")
     print("1. DSA")
+    print("2. ECDSA")
     sig_choice = input("Enter choice (default=1): ")
-    if sig_choice != "1":
-        print("Invalid choice, defaulting to DSA")
-    sig_method = "dsa"
+    sig_method = "el" if sig_choice == "2" else "default"
     
     print("\nSelect Encryption method:")
-    print("1. ElGamal (Additive)")
+    print("1. ElGamal")
+    print("2. EC ElGamal")
     enc_choice = input("Enter choice (default=1): ")
-    if enc_choice != "1":
-        print("Invalid choice, defaulting to ElGamal (Additive)")
-    enc_method = "default"
+    enc_method = "el" if enc_choice == "2" else "default"
     
     # Initialize the voting system.
-    vote_system = VoteSystem(candidates, sig_method, enc_method)
+    vote_system = VoteSystem(candidates, sig_method, enc_method)  # Initialize the VoteSystem object
     
     # Register voters.
     num_voters = 10
     print(f"\nRegistering {num_voters} voters.")
-    for i in range(1, num_voters+1):
+    for i in range(1, num_voters + 1):
         name = input(f"Enter name for voter {i}: ").strip()
-        # For simulation, generate a dummy DSA private key (in a real system, use proper key generation).
-        x,y =dsa.DSA_generate_keys()
-        voter = Voter(name, candidates,x,y )
-        vote_system.add_voter(voter)
+        if sig_method == "el":
+            from ecdsa import ECDSA_generate_keys
+            x, y = ECDSA_generate_keys()
+        else:
+            from dsa import DSA_generate_keys
+            x, y = DSA_generate_keys()
+        voter = Voter(name, candidates, x, y)
+        vote_system.add_voter(voter)  # Add the voter to the vote_system
     
     # Voting phase.
     print("\n--- Voting Phase ---")
